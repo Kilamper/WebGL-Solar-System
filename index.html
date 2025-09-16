@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html>
+  <!-- STEP 1: Prepare the canvas -->
+  <head>
+    <style>
+      body,
+      html {
+        overflow: hidden;
+      }
+      #my_Canvas {
+        border: 5px dotted blue;
+      }
+    </style>
+    <meta name="viewport" content="width=device-width, user-scalable=no" />
+    <!-- librería GUI -->
+    <script type="text/javascript" src="dat.gui.min.js"></script>
+    <script type="text/javascript" src="gl-matrix-min.js"></script>
+  </head>
+
+  <body>
+    <canvas style="width: 95%" width="350" height="350" id="my_Canvas"></canvas>
+
+    <script>
+      /*//contexto 2D tradicional
+     var canvas = document.getElementById('my_Canvas');
+     var context = canvas.getContext('2d');
+     context.font = '20pt Calibri';
+     context.fillStyle = 'blue'
+     context.fillText('Holas',70,70);
+     */
+    </script>
+
+    <!-- vertex Shader -->
+    <script id="vertex-shader" type="x-shader/x-vertex">
+      #version 300 es
+      precision mediump float;
+
+      in vec2 aCoordinates;
+      uniform mat4 uModelMatrix;
+
+      void main(void) {
+        gl_Position = uModelMatrix * vec4(aCoordinates, 0.0, 1.0);
+        gl_PointSize = 10.0;
+      }
+    </script>
+
+    <!-- fragment Shader -->
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        #version 300 es
+        precision mediump float;
+
+        out vec4 fragColor;
+        uniform vec4 uColor;
+
+        void main(void) {
+          //fragColor = vec4(1,0,1,1);
+          fragColor = uColor;
+      }
+    </script>
+
+    <script>
+      var sun = {
+        name: "Sun",
+        x: 0,
+        y: 0,
+        width: 0.5,
+        height: 0.5,
+        color: [1, 1, 0, 1],
+        angle: 0.0,
+        speed: 0.0,
+      };
+
+      var mercurio = {
+        name: "Mercurio",
+        x: 0.5,
+        y: 0,
+        width: 0.08,
+        height: 0.08,
+        color: [0.7, 0.5, 0.1, 1],
+        angle: 0.0,
+        speed: 0.05,
+        rotationX: 0.8,
+        rotationY: 0.0,
+      };
+
+      var venus = {
+        name: "Venus",
+        x: 0.75,
+        y: 0,
+        width: 0.12,
+        height: 0.12,
+        color: [0.9, 0.8, 0.5, 1],
+        angle: 0.0,
+        speed: 0.025,
+        rotationX: 0.6,
+        rotationY: 0.3,
+      };
+
+      var earth = {
+        name: "Earth",
+        x: 1.1,
+        y: 0,
+        width: 0.15,
+        height: 0.15,
+        color: [0.2, 0.2, 1, 1],
+        angle: 0.0,
+        speed: 0.02,
+        rotationX: -0.5,
+        rotationY: 0.2,
+      };
+
+      var moon = {
+        name: "Moon",
+        x: 0.2,
+        y: 0,
+        width: 0.07,
+        height: 0.07,
+        color: [1, 1, 1, 1],
+        angle: 0.0,
+        speed: 0.04,
+        rotationX: 0.5,
+        rotationY: 0.0,
+      };
+
+      var mars = {
+        name: "Mars",
+        x: 1.45,
+        y: 0,
+        width: 0.1,
+        height: 0.1,
+        color: [1, 0, 0, 1],
+        angle: 0.0,
+        speed: 0.01,
+        rotationX: 0.0,
+        rotationY: 0.4,
+      };
+
+      var jupiter = {
+        name: "Jupiter",
+        x: 1.9,
+        y: 0,
+        width: 0.24,
+        height: 0.24,
+        color: [0.6, 0.4, 0.0, 1],
+        angle: 0.0,
+        speed: 0.005,
+        rotationX: -0.4,
+        rotationY: 0.2,
+      };
+
+      var saturn = {
+        name: "Saturn",
+        x: 2.3,
+        y: 0,
+        width: 0.2,
+        height: 0.2,
+        color: [0.8, 0.8, 0.0, 1],
+        angle: 0.0,
+        speed: 0.002,
+        rotationX: 0.2,
+        rotationY: 0.2,
+      };
+
+      var rings = {
+        name: "Rings",
+        x: 0.16,
+        y: 0,
+        width: 0.2,
+        height: 0.2,
+        color: [0.77, 0.557, 0.0616, 1],
+        angle: 0.0,
+        speed: -0.001,
+        rotationX: 1.3,
+        rotationY: 0.0,
+      };
+
+      const { vec2, vec3, mat3, mat4 } = glMatrix;
+
+      var modelMatrixLoc;
+
+      var settings = {
+        translateX: 0.0,
+        translateY: 0.0,
+        rotateX: 0.0,
+        rotateY: 0.0,
+        rotateZ: 0.0,
+        zoom: 40,
+        speed: 1,
+      };
+
+      var gui = new dat.GUI();
+      gui.add(settings, "translateX", -2, 2, 0.02);
+      gui.add(settings, "translateY", -2, 2, 0.02);
+      gui.add(settings, "zoom", 1, 100);
+      gui.add(settings, "speed", -50, 50, 1);
+      gui.add(settings, "rotateX", -180, 180);
+      gui.add(settings, "rotateY", -180, 180);
+      gui.add(settings, "rotateZ", -180, 180);
+
+      // Apply CSS styles to locate in the bottom side of the window
+      var guiContainer = document.querySelector(".dg.main");
+      guiContainer.style.position = "fixed";
+      guiContainer.style.bottom = "0";
+      guiContainer.style.left = "0";
+
+      var matrixStack = [];
+      function glPushMatrix() {
+        const matrix = mat4.create();
+        mat4.copy(matrix, modelMatrix);
+        matrixStack.push(matrix);
+      }
+
+      function glPopMatrix() {
+        modelMatrix = matrixStack.pop();
+      }
+
+      function init() {
+        // ============ STEP 1: Creating a canvas=================
+        canvas = document.getElementById("my_Canvas");
+        gl = canvas.getContext("webgl2");
+
+        //========== STEP 2: Create and compile shaders ==========
+
+        // Create a vertex shader object
+        var vertShader = gl.createShader(gl.VERTEX_SHADER);
+
+        // Attach vertex shader source code
+        var script = document.getElementById("vertex-shader");
+        var shaderString = script.text.trim();
+        gl.shaderSource(vertShader, shaderString);
+
+        // Compile the vertex shader
+        gl.compileShader(vertShader);
+
+        // Create fragment shader object
+        var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+
+        // Attach fragment shader source code
+        script = document.getElementById("fragment-shader");
+        shaderString = script.text.trim();
+        gl.shaderSource(fragShader, shaderString);
+
+        // Compile the fragmentt shader
+        gl.compileShader(fragShader);
+
+        // Create a shader program object to store
+        // the combined shader program
+        var shaderProgram = gl.createProgram();
+
+        // Attach a vertex shader
+        gl.attachShader(shaderProgram, vertShader);
+
+        // Attach a fragment shader
+        gl.attachShader(shaderProgram, fragShader);
+
+        // Link both programs
+        gl.linkProgram(shaderProgram);
+
+        // Use the combined shader program object
+        gl.useProgram(shaderProgram);
+
+        //======== STEP 3: Create buffer objects and associate shaders ========
+
+        // Create an empty buffer object to store the vertex buffer
+        vertex_buffer = gl.createBuffer();
+
+        // Bind vertex buffer object
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+
+        // Get the attribute location
+        var coordLocation = gl.getAttribLocation(shaderProgram, "aCoordinates");
+
+        // Point an attribute to the currently bound VBO
+        gl.vertexAttribPointer(coordLocation, 2, gl.FLOAT, false, 0, 0);
+
+        // Enable the attribute
+        gl.enableVertexAttribArray(coordLocation);
+
+        // Unbind the buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        // look up uniform locations
+        colorLocation = gl.getUniformLocation(shaderProgram, "uColor");
+
+        modelMatrixLoc = gl.getUniformLocation(shaderProgram, "uModelMatrix");
+
+        // Set a random color.
+        //gl.uniform4f(colorLocation, 1, 0, 0, 1);
+
+        // renderizamos el frame
+        render();
+      }
+
+      function render() {
+        //========= STEP 4: Create the geometry and draw ===============
+
+        // Clear the canvas
+        gl.clearColor(0.1, 0.1, 0.1, 1.0);
+
+        // Clear the color buffer bit
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        // Set the view port
+        gl.viewport(0, 0, canvas.width, canvas.height);
+
+        // Bind appropriate array buffer to it
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+
+        // Set the model Matrix.
+        modelMatrix = mat4.create();
+        mat4.identity(modelMatrix);
+        mat4.scale(modelMatrix, modelMatrix, [
+          settings.zoom / 100,
+          settings.zoom / 100,
+          1,
+        ]);
+        mat4.translate(modelMatrix, modelMatrix, [
+          settings.translateX,
+          settings.translateY,
+          0,
+        ]);
+        mat4.rotateX(
+          modelMatrix,
+          modelMatrix,
+          (settings.rotateX / 180) * Math.PI
+        );
+        mat4.rotateY(
+          modelMatrix,
+          modelMatrix,
+          (settings.rotateY / 180) * Math.PI
+        );
+        mat4.rotateZ(
+          modelMatrix,
+          modelMatrix,
+          (settings.rotateZ / 180) * Math.PI
+        );
+
+        gl.uniformMatrix4fv(modelMatrixLoc, false, modelMatrix);
+
+        // draw sun
+        drawPlanet(sun);
+
+        // draw mercurio
+        drawPlanetAndOrbit(mercurio);
+
+        // draw venus
+        drawPlanetAndOrbit(venus);
+
+        // draw earth
+        drawPlanetAndOrbit(earth);
+
+        // draw mars
+        drawPlanetAndOrbit(mars);
+
+        // draw jupiter
+        drawPlanetAndOrbit(jupiter);
+
+        // draw saturn
+        drawPlanetAndOrbit(saturn);
+
+        // Unbind the buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        // Empezamos bucle animación
+        window.requestAnimationFrame(render);
+      }
+
+      function drawSquare() {
+        v = new Float32Array([
+          -0.5, 0.5, 0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, 0.5, -0.5,
+        ]);
+        // Pass the vertex data to the buffer
+        gl.bufferData(gl.ARRAY_BUFFER, v, gl.STATIC_DRAW);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+      }
+
+      function drawCircle(radius = 0.5, segments = 100, fill = true) {
+        const vertices = [];
+        const angleStep = (2 * Math.PI) / segments;
+
+        for (let i = 0; i <= segments; i++) {
+          const angle = i * angleStep;
+          const x = Math.cos(angle) * radius;
+          const y = Math.sin(angle) * radius;
+          vertices.push(x, y);
+        }
+
+        // Convertir el array de vértices a un Float32Array
+        const vertexArray = new Float32Array(vertices);
+
+        // Pasar los datos de los vértices al buffer
+        gl.bufferData(gl.ARRAY_BUFFER, vertexArray, gl.STATIC_DRAW);
+
+        if (fill) {
+          // Dibujar usando TRIANGLE_FAN para formar un círculo
+          gl.drawArrays(gl.TRIANGLE_FAN, 0, segments);
+        } else {
+          // Dibujar usando LINE_LOOP para formar un círculo
+          gl.drawArrays(gl.LINE_LOOP, 0, segments);
+        }
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+      }
+
+      function drawPlanet(planet) {
+        glPushMatrix();
+        planet.angle += planet.speed * settings.speed;
+        mat4.rotateZ(modelMatrix, modelMatrix, planet.angle);
+        mat4.translate(modelMatrix, modelMatrix, [planet.x, planet.y, 0]);
+        mat4.rotateX(
+          modelMatrix,
+          modelMatrix,
+          - (settings.rotateX / 180) * Math.PI
+        );
+        mat4.rotateY(
+          modelMatrix,
+          modelMatrix,
+          - (settings.rotateY / 180) * Math.PI
+        );
+        if (planet.name == "Earth") {
+          drawPlanetAndOrbit(moon);
+        } else if (planet.name == "Saturn") {
+          rings.x = 0.16;
+          for (i = 0; i <= 5; i++) {
+            drawOrbit(rings);
+            rings.x += 0.01;
+          }
+        }
+        mat4.scale(modelMatrix, modelMatrix, [planet.width, planet.height, 1]);
+        gl.uniformMatrix4fv(modelMatrixLoc, false, modelMatrix);
+        gl.uniform4fv(colorLocation, planet.color);
+        drawCircle();
+        glPopMatrix();
+      }
+
+      function drawOrbit(planet) {
+        glPushMatrix();
+        mat4.scale(modelMatrix, modelMatrix, [2 * planet.x, 2 * planet.x, 1]);
+        if (planet.name == "Rings") {
+          planet.angle += planet.speed * settings.speed;
+          mat4.rotateZ(modelMatrix, modelMatrix, planet.angle);
+          mat4.rotateX(modelMatrix, modelMatrix, planet.rotationX);
+        }
+        gl.uniformMatrix4fv(modelMatrixLoc, false, modelMatrix);
+        gl.uniform4fv(colorLocation, planet.color);
+        drawCircle(planet.x, 100, false);
+        glPopMatrix();
+      }
+
+      function drawPlanetAndOrbit(planet) {
+        glPushMatrix();
+        mat4.rotateX(modelMatrix, modelMatrix, planet.rotationX);
+        mat4.rotateY(modelMatrix, modelMatrix, planet.rotationY);
+        drawOrbit(planet);
+        drawPlanet(planet);
+        glPopMatrix();
+      }
+
+      // Call init once the document has loaded
+      window.onload = init;
+    </script>
+  </body>
+</html>
