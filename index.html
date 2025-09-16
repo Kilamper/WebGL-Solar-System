@@ -11,10 +11,9 @@
       }
       #my_Canvas {
         display: block;
-        width: 100vw;
-        height: 100vh;
-        max-width: 100vw;
-        max-height: 100vh;
+        margin: auto;
+        position: absolute;
+        top: 0; left: 0; bottom: 0; right: 0;
         border: 5px dotted blue;
         box-sizing: border-box;
         background: #111;
@@ -226,10 +225,13 @@
 
       function resizeCanvas() {
         const dpr = window.devicePixelRatio || 1;
-        canvas.width = window.innerWidth * dpr;
-        canvas.height = window.innerHeight * dpr;
-        canvas.style.width = window.innerWidth + "px";
-        canvas.style.height = window.innerHeight + "px";
+        const size = Math.min(window.innerWidth, window.innerHeight);
+        canvas.width = size * dpr;
+        canvas.height = size * dpr;
+        canvas.style.width = size + "px";
+        canvas.style.height = size + "px";
+        canvas.style.left = ((window.innerWidth - size) / 2) + "px";
+        canvas.style.top = ((window.innerHeight - size) / 2) + "px";
         if (gl) {
           gl.viewport(0, 0, canvas.width, canvas.height);
         }
