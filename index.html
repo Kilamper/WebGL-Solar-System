@@ -3,12 +3,21 @@
   <!-- STEP 1: Prepare the canvas -->
   <head>
     <style>
-      body,
-      html {
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
         overflow: hidden;
       }
       #my_Canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        max-width: 100vw;
+        max-height: 100vh;
         border: 5px dotted blue;
+        box-sizing: border-box;
+        background: #111;
       }
     </style>
     <title>WebGL Solar System</title>
@@ -19,7 +28,7 @@
   </head>
 
   <body>
-    <canvas style="width: 95%" width="350" height="350" id="my_Canvas"></canvas>
+  <canvas id="my_Canvas"></canvas>
 
     <script>
       /*//contexto 2D tradicional
@@ -215,12 +224,25 @@
         modelMatrix = matrixStack.pop();
       }
 
+      function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = window.innerWidth + "px";
+        canvas.style.height = window.innerHeight + "px";
+        if (gl) {
+          gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+      }
+
       function init() {
         // ============ STEP 1: Creating a canvas=================
         canvas = document.getElementById("my_Canvas");
         gl = canvas.getContext("webgl2");
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
 
-        //========== STEP 2: Create and compile shaders ==========
+        //========== STEP 2: Create and compile shaders ========== 
 
         // Create a vertex shader object
         var vertShader = gl.createShader(gl.VERTEX_SHADER);
@@ -301,8 +323,8 @@
         // Clear the color buffer bit
         gl.clear(gl.COLOR_BUFFER_BIT);
 
-        // Set the view port
-        gl.viewport(0, 0, canvas.width, canvas.height);
+  // Set the view port
+  gl.viewport(0, 0, canvas.width, canvas.height);
 
         // Bind appropriate array buffer to it
         gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
